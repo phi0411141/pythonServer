@@ -162,13 +162,16 @@ def test(s):
     return categories[clf.predict([v])[0]]
 
 
-@app.route('/', methods=['POST'])
-def getdata():
+@app.route('/<cat>', methods=['POST','GET'])
+def getdata(cat):
     # client = MongoClient()
     # db = client.admin
-    body_unicode = request.data.decode('utf-8')
-    dataString = json.loads(body_unicode)['string']
-    print(dataString)
+    print(cat)
+    try
+        body_unicode = request.data.decode('utf-8')
+        dataString = json.loads(body_unicode)['string']
+    except valueErr
+        return valueErr
     # db.aaa.insert_one({'body_unicode': json.loads(body_unicode)})
     return test(dataString)
 
