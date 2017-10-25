@@ -167,7 +167,7 @@ def getdata(cat):
     # client = MongoClient()
     # db = client.admin
     print(cat)
-    try
+    try:
         body_unicode = request.data.decode('utf-8')
         dataString = json.loads(body_unicode)['string']
     except valueErr
