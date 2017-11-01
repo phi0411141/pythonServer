@@ -161,6 +161,9 @@ def test(s):
     v = convert(s, stopwords, notion, dictionary)
     return categories[clf.predict([v])[0]]
 
+@app.route('/')
+def hello():
+    return "<h1 style='color:blue'>Hello There!</h1>"
 
 @app.route('/', methods=['POST'])
 def getdata():
@@ -173,4 +176,4 @@ def getdata():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0')
