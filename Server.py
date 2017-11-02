@@ -166,13 +166,18 @@ def hello():
     return "<h1 style='color:blue'>Hello There!</h1>"
 
 @app.route('/', methods=['POST'])
-def getdata():
+def category_guess():
     # client = MongoClient()
-    # db = client.admin     
-    body_unicode = request.data.decode('utf-8')
-    dataString = json.loads(body_unicode)['string']   
+    # db = client.admin
+    try:
+        body_unicode = request.data.decode('utf-8')
+        data_string = json.loads(body_unicode)['string']
+    except ValueError:
+        print("error parsing body:", ValueError)
+        return json.dumps({'success': False, 'error': 'Json error'}), 400, {'ContentType': 'application/json'}
+
     # db.aaa.insert_one({'body_unicode': json.loads(body_unicode)})
-    return test(dataString)
+    return json.dumps({'success': True, 'category_id': test(data_string)}), 200, {'ContentType': 'application/json'}
 
 
 if __name__ == '__main__':
