@@ -166,6 +166,7 @@ def hello():
     return "<h1 style='color:blue'>Hello There!</h1>"
 
 @app.route('/', methods=['POST'])
+@crossdomain(origin='*')
 def getdata():
     # client = MongoClient()
     # db = client.admin     
