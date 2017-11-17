@@ -4,176 +4,175 @@ from pymongo import MongoClient
 from flask_restful import Api, Resource, abort
 import nltk
 from nltk.stem.wordnet import WordNetLemmatizer
+from sklearn.svm import LinearSVC
 import string
-from sklearn.naive_bayes import BernoulliNB
+import numpy as np
 
-filePath = 'data.txt'
 app = Flask(__name__)
+fileTrain = 'train.txt'
 
 
-def pre():
-    stopwords = nltk.corpus.stopwords.words('english')
+# fileTest = 'test.txt'
+
+def readData(filePath):
     f = open(filePath, 'r', encoding='utf8')
-    Q = []
-    while (True):
-        question = f.readline()
-        if len(question) == 0: break
-        cate = f.readline()
-        Q.append((question, cate))
-        # if (len(Q) >= 100): break
-    return (stopwords, Q)
+    L = [line for line in f]
+    questions = [L[i] for i in range(len(L)) if i % 2 == 0]
+    categories = [L[i] for i in range(len(L)) if i % 2 == 1]
+    data = {"X": questions, "y": categories}
+    return data
 
 
-def makeDict(S, stopwords, notion):
-    my_dict = set()
-    result = []
-    for s in S:
-        V = makeBeauty(s, stopwords, notion)
-        for v in V:
-            if (v not in my_dict):
-                my_dict.add(v)
-                result.append(v)
+def build_the_dictionary(questions):
+    check = set()
+    my_dict = []
+    for question in questions:
+        for v in build_the_list_tokenize(question):
+            t = v
+            if (v.isnumeric()): t = "100"
+            if (t not in check):
+                check.add(t)
+                my_dict.append(t)
 
-    result = sorted(result)
-    return result
+    return ["unknown"] + sorted(my_dict)
 
 
-def makeBeauty(s, stopwords, notion):
-    v = nltk.tokenize.word_tokenize(s)
-    result = []
+def build_the_list_tokenize(sentence):
+    notion = ['?', "'s", "'", "`", "!", ",", ".", '"', '{', '}', '’', '“', '”']
+    stopwords = nltk.corpus.stopwords.words('english') + notion
     lmtzr = WordNetLemmatizer()
-    for i in range(len(v)):
-        v[i] = v[i].lower()
-        if (v[i] not in stopwords) and (v[i] not in notion):
-            temp = v[i]
-            v[i] = lmtzr.lemmatize(v[i], 'v')
-            if (v[i] == temp):
-                v[i] = lmtzr.lemmatize(v[i], 'n')
-            result.append(v[i])
+    tokens = nltk.tokenize.word_tokenize(sentence)
+    v = []
+    for w in tokens:
+        if (w.isupper()):
+            v.append(w)
+        else:
+            v.append(w.lower())
+
+    result = []
+    for w in v:
+        if (w not in stopwords):
+            temp = w
+            temp = lmtzr.lemmatize(temp, 'v')
+            if (w == temp):
+                temp = lmtzr.lemmatize(temp, 'n')
+            result.append(temp)
     return result
 
 
 def prepare():
-    # make a set containing stopwords
-    (stopwords, Q) = pre()
-    # add ? !
-    notion = set(string.printable)
-    # read a file, and return (question, id)
-    question = []
-    for (q, c) in Q: question.append(q)
-    dictionary = makeDict(question, stopwords, notion)
-    return (dictionary, Q, notion, stopwords)
+    # read data
+    data = readData(fileTrain)
+
+    # build dictionary
+    dictionary = build_the_dictionary(data["X"])
+
+    return (data, dictionary)
 
 
-def convert(S, stopwords, notion, dictionary):
-    v = makeBeauty(S, stopwords, notion)
+def convert_to_vector(sentence, dictionary):
     result = [0] * len(dictionary)
-    for s in v:
-        left = 0
+    for s in build_the_list_tokenize(sentence):
+        left = 1
         right = len(dictionary) - 1
         pos = 0
         while (left <= right):
             mid = int((left + right) / 2)
-            argmid = dictionary[mid]
-            if (argmid == s):
-                pos = mid
-                break
+            X = dictionary[mid]
+            if (X == s):
+                pos = mid;
+                break;
             else:
-                if (argmid < s):
+                if (X < s):
                     left = mid + 1
                 else:
                     right = mid - 1
-
         result[pos] = 1
     return result
 
 
-def split(X, y, n_categories):
-    new_dict = {}
-    n_examples = len(X)
-    for c in range(n_categories): new_dict[c] = []
-    for i in range(n_examples): new_dict[y[i]].append(X[i])
-
-    result = {}
-    cnt = -1
-    for c in range(n_categories):
-        if (len(new_dict[c]) > 10):
-            cnt += 1
-            result[cnt] = new_dict[c]
-    return (cnt, result)
-
-
-def train():
-    (dictionary, Q, notion, stopwords) = prepare()
-
-    X = []
-    all_categories = []
-
-    check = set()
-    for (q, c) in Q:
-        x = convert(q, notion, stopwords, dictionary)
-        X.append(x)
-        if (c not in check):
-            all_categories.append(c)
-            check.add(c)
-
+def classifier1(data, dictionary, categories):
+    # whether business or not?
+    # print("Building classifier 1: whether business or not...")
+    X = [convert_to_vector(question, dictionary) for question in data["X"]]
     y = []
-    for (q, c) in Q:
-        index = all_categories.index(c)
-        y.append(index)
+    for c in data["y"]:
+        if c.startswith("Business"):
+            y.append(categories.index(c))
+        else:
+            y.append(-1)
 
-    n_categories = len(all_categories)
-    # split data
-    (n_categories, new_dict) = split(X, y, n_categories)
-    # ending
-
-    P = {}
-    for i in range(n_categories): P[i] = 0
-    #
-    X_train = []
-    y_train = []
-    X_test = []
-    y_test = []
-    n_train = n_test = 0
-
-    for c in range(n_categories):
-        length = int(len(new_dict[c]) * 0.8)
-        n_train += length
-        n_test += len(new_dict[c]) - length
-        X_train = X_train + new_dict[c][: length]
-        y_train = y_train + [c] * length
-        X_test = X_test + new_dict[c][length:]
-        y_test = y_test + [c] * (len(new_dict[c]) - length)
-        P[c] += length
-    # ending divide
-
-    clf = BernoulliNB()
+    clf = LinearSVC(random_state=0)
     clf.fit(X, y)
+    return clf
 
-    return (clf, stopwords, notion, dictionary, all_categories)
+
+def classifier2(data, dictionary, categories):
+    # whether business or not?
+    # print("Building classifier 2..")
+    X = [convert_to_vector(question, dictionary) for question in data["X"]]
+    y = []
+    X_train = []
+
+    for i in range(len(data["y"])):
+        c = data["y"][i]
+        if c.startswith("Business"): continue
+        y.append(categories.index(c))
+        X_train.append(X[i])
+
+    clf = LinearSVC(random_state=0)
+    clf.fit(X_train, y)
+    return clf
 
 
-(clf, stopwords, notion, dictionary, categories) = train()
+def main():
+    # print("Making a dictionary...")
+
+    (data, dictionary) = prepare()
+    categories = list(set(data["y"]))
+    # print(dictionary)
+
+    clf1 = classifier1(data, dictionary, categories)
+    clf2 = classifier2(data, dictionary, categories)
+    return (clf1, clf2, dictionary, categories)
+
+
+(clf1, clf2, dictionary, categories) = main()
 
 
 def test(s):
-    global clf, stopwords, notion, dictionary, categories
-    v = convert(s, stopwords, notion, dictionary)
-    return categories[clf.predict([v])[0]]
+    global clf1, clf2, dictionary, categories
+    X = convert_to_vector(s, dictionary)
+    pre_id = clf1.predict([X])[0]
+    if (pre_id != -1):
+        return categories[pre_id]
+    else:
+        new_pre_id = clf2.predict([X])[0]
+        return categories[new_pre_id]
+
 
 @app.route('/')
 def hello():
     return "<h1 style='color:blue'>Hello There!</h1>"
 
+
 @app.route('/', methods=['POST'])
-@crossdomain(origin='*')
-def getdata():
+def category_guess():
     # client = MongoClient()
-    # db = client.admin     
-    body_unicode = request.data.decode('utf-8')
-    dataString = json.loads(body_unicode)['string']   
+    # db = client.admin
+    data_string = None
+    try:
+        if request.method == 'POST':
+            content = request.get_json(force=True)
+            data_string = content.get('string')
+    except ValueError:
+        print("error parsing body:", ValueError)
+        return jsonify(success=False, error='json error'), 400
+    if data_string is None:
+        return jsonify(success=False, error='cant get string from body'), 400
+    guess_result = test(data_string)
     # db.aaa.insert_one({'body_unicode': json.loads(body_unicode)})
-    return test(dataString)
+    return jsonify({'success': True, 'category_id': guess_result.strip('\n')}), 200
 
 
 if __name__ == '__main__':
