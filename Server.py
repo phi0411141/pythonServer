@@ -157,6 +157,7 @@ def hello():
 
 
 @app.route('/', methods=['POST'])
+@crossdomain(origin='*')
 def category_guess():
     # client = MongoClient()
     # db = client.admin
