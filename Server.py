@@ -1,6 +1,6 @@
 from __future__ import print_function
 from flask import Flask, jsonify, request, json
-from pymongo import MongoClient
+#from pymongo import MongoClient
 from flask_restful import Api, Resource, abort
 import nltk
 from nltk.stem.wordnet import WordNetLemmatizer
