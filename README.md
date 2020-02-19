@@ -1,5 +1,5 @@
 # pythonServer
-python server to identify categories in job title & centences
+python server to identify categories in job title & sentences
 
 ### Getting started
   1. install python 3.6 or newer.
